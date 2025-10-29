@@ -47,5 +47,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: "error", message: errorMessage });
   }
 }
-
-    

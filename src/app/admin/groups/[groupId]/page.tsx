@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,17 +10,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Users, DollarSign, Calendar, Plus, Trash2, Check, AlertTriangle, ArrowLeft, RefreshCw, Landmark, ChevronsRight, Edit, Save } from "lucide-react"
+import { Loader2, Users, IndianRupee, Plus, Trash2, ArrowLeft, ChevronsRight, Edit, Save, Landmark, FileCog, Banknote, History, Download, Filter, Bot, Link as LinkIcon } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Header } from "@/components/layout/header"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 interface Member {
   _id: string
   name: string
   phone: string
   telegramId?: string
+  telegramLinkCode?: string
 }
 
 interface Payment {
@@ -29,7 +32,7 @@ interface Payment {
   memberId: {
     _id:string;
     name: string;
-  };
+  } | null;
   amount: number;
   date: string;
   month: string;
@@ -42,7 +45,8 @@ interface Withdrawal {
   winnerId: {
     _id: string;
     name: string;
-  };
+  } | null;
+  type: 'auction' | 'fcfs';
   bidAmount: number;
   foremanCommission: number;
   dividend: number;
@@ -76,12 +80,12 @@ export default function GroupDetailsPage() {
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false)
   const [isEditMemberOpen, setIsEditMemberOpen] = useState(false);
 
-  const [newMember, setNewMember] = useState({ name: "", phone: "", telegramId: "" })
+  const [newMember, setNewMember] = useState({ name: "", phone: "" })
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [paymentDetails, setPaymentDetails] = useState({ memberId: "", month: currentMonthName, year: currentYearValue })
   const [bulkPaymentMembers, setBulkPaymentMembers] = useState<string[]>([])
-  const [withdrawalDetails, setWithdrawalDetails] = useState({ winnerId: "", bidAmount: "" })
-  const [groupSettings, setGroupSettings] = useState({ name: "", amountPerCycle: "", totalMembers: "" });
+  const [withdrawalDetails, setWithdrawalDetails] = useState({ winnerId: "", bidAmount: "", type: "auction" })
+  const [groupSettings, setGroupSettings] = useState({ name: "", amountPerCycle: "" });
 
 
   const { toast } = useToast()
@@ -97,7 +101,6 @@ export default function GroupDetailsPage() {
         setGroupSettings({
           name: groupData.name,
           amountPerCycle: groupData.amountPerCycle.toString(),
-          totalMembers: groupData.totalMembers.toString()
         });
       } else {
         toast({ variant: "destructive", title: "Failed to fetch group details" })
@@ -111,7 +114,7 @@ export default function GroupDetailsPage() {
 
   useEffect(() => {
     fetchGroupDetails()
-  }, [groupId])
+  }, [groupId, toast])
   
   const handleBulkMemberSelect = (memberId: string) => {
     setBulkPaymentMembers(prev => 
@@ -137,7 +140,7 @@ export default function GroupDetailsPage() {
       if (response.ok) {
         toast({ title: "Member Added" })
         setIsAddMemberOpen(false)
-        setNewMember({ name: "", phone: "", telegramId: "" })
+        setNewMember({ name: "", phone: "" })
         fetchGroupDetails()
       } else {
         const errorData = await response.json().catch(() => ({ message: "An unknown error occurred" }));
@@ -256,20 +259,24 @@ export default function GroupDetailsPage() {
   
   const handleRecordWithdrawal = async () => {
     try {
+      const body = {
+        winnerId: withdrawalDetails.winnerId,
+        type: withdrawalDetails.type,
+        bidAmount: withdrawalDetails.type === 'auction' ? parseFloat(withdrawalDetails.bidAmount) : undefined,
+        month: currentMonthName,
+        year: currentYearValue,
+      };
+
       const response = await fetch(`/api/groups/${groupId}/withdrawals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          winnerId: withdrawalDetails.winnerId,
-          bidAmount: parseFloat(withdrawalDetails.bidAmount),
-          month: currentMonthName,
-          year: currentYearValue,
-        }),
+        body: JSON.stringify(body),
       });
+
       if (response.ok) {
         toast({ title: 'Withdrawal Recorded' });
         setIsWithdrawalOpen(false);
-        setWithdrawalDetails({ winnerId: '', bidAmount: '' });
+        setWithdrawalDetails({ winnerId: '', bidAmount: '', type: 'auction' });
         fetchGroupDetails();
       } else {
         const errorData = await response.json();
@@ -281,7 +288,7 @@ export default function GroupDetailsPage() {
   };
   
   const handleNextCycle = async () => {
-    if (!confirm('Are you sure you want to advance to the next cycle?')) return;
+    if (!confirm('Are you sure you want to advance to the next cycle? This will lock the current cycle\'s auction and payments.')) return;
     try {
       const response = await fetch(`/api/groups/${groupId}/next-cycle`, { method: 'POST' });
       if (response.ok) {
@@ -304,7 +311,6 @@ export default function GroupDetailsPage() {
         body: JSON.stringify({
           name: groupSettings.name,
           amountPerCycle: parseFloat(groupSettings.amountPerCycle),
-          totalMembers: parseInt(groupSettings.totalMembers),
         }),
       });
 
@@ -319,342 +325,368 @@ export default function GroupDetailsPage() {
       toast({ variant: 'destructive', title: 'Error updating group settings' });
     }
   };
+  
+  const renderLoading = () => (
+    <div className="flex justify-center items-center h-full py-32">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+    </div>
+  )
 
   if (loading || !group) {
     return (
-      <DashboardLayout>
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <div className="min-h-screen bg-background text-foreground">
+            <Header />
+            <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+                {renderLoading()}
+            </main>
         </div>
-      </DashboardLayout>
     )
   }
   
   const paidThisMonth = group.payments.filter(p => p.month === currentMonthName && p.year === currentYearValue);
   const totalCollected = paidThisMonth.reduce((sum, p) => sum + p.amount, 0);
-  const membersToPay = group.members.filter(member => !paidThisMonth.some(p => p.memberId._id === member._id));
+  const totalPot = group.amountPerCycle * group.totalMembers;
+  const membersToPay = group.members.filter(member => !paidThisMonth.some(p => p.memberId && p.memberId._id === member._id));
   
   const currentCycleWithdrawal = group.withdrawals.find(
     w => w.month === currentMonthName && w.year === currentYearValue
   );
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <Link href="/admin" className="flex items-center text-sm text-muted-foreground hover:text-primary mb-2">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Link>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div>
-                 <h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
-                <p className="text-muted-foreground">Detailed view and management tools for this group.</p>
-            </div>
-            {group.currentCycle < group.totalMembers && (
-             <Button onClick={handleNextCycle} className="mt-2 sm:mt-0 w-full sm:w-auto">
-                <ChevronsRight className="w-4 h-4 mr-2"/>
-                Go to Next Cycle ({group.currentCycle + 1})
-            </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-              <Users className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">{group.members.length} / {group.totalMembers}</div>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Contribution</CardTitle>
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">₹{group.amountPerCycle.toLocaleString()}</div>
-               <p className="text-xs text-muted-foreground">per member</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Current Cycle</CardTitle>
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">{group.currentCycle}</div>
-               <p className="text-xs text-muted-foreground">of {group.totalMembers} months</p>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">This Month's Pot</CardTitle>
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold text-green-600">₹{totalCollected.toLocaleString()}</div>
-               <p className="text-xs text-muted-foreground">{paidThisMonth.length} of {group.members.length} members paid</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="members">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-                <TabsTrigger value="members">Members</TabsTrigger>
-                <TabsTrigger value="payments">Payments</TabsTrigger>
-                <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-            <TabsContent value="members">
-                <Card>
-                  <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                          <CardTitle>Group Members</CardTitle>
-                          <CardDescription>Add, view, or remove members from this group.</CardDescription>
-                        </div>
-                        <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
-                          <DialogTrigger asChild>
-                            <Button className="w-full sm:w-auto"><Plus className="w-4 h-4 mr-2" /> Add Member</Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader><DialogTitle>Add New Member</DialogTitle></DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <div><Label htmlFor="name">Name</Label><Input id="name" value={newMember.name} onChange={(e) => setNewMember({ ...newMember, name: e.target.value })} /></div>
-                              <div><Label htmlFor="phone">Phone</Label><Input id="phone" value={newMember.phone} onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })} /></div>
-                              <div><Label htmlFor="telegramId">Telegram ID (Optional)</Label><Input id="telegramId" value={newMember.telegramId} onChange={(e) => setNewMember({ ...newMember, telegramId: e.target.value })} /></div>
-                              <Button onClick={handleAddMember} className="w-full">Add Member</Button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+    <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-4">
+                     <Button variant="outline" size="icon" className="h-10 w-10" asChild>
+                        <Link href="/admin"><ArrowLeft className="w-4 h-4" /></Link>
+                    </Button>
+                    <div>
+                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{group.name}</h1>
+                         <p className="text-muted-foreground text-sm">Group Details</p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                     <div className="overflow-x-auto">
-                         <Table>
-                            <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Paid This Month?</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                                {group.members.map(member => (
-                                    <TableRow key={member._id}>
-                                        <TableCell className="font-medium">{member.name}</TableCell>
-                                        <TableCell>{member.phone}</TableCell>
-                                        <TableCell>
-                                          {paidThisMonth.some(p => p.memberId._id === member._id) ? 
-                                            <span className="flex items-center text-green-600"><Check className="w-4 h-4 mr-2"/> Paid</span> : 
-                                            <span className="flex items-center text-yellow-600"><AlertTriangle className="w-4 h-4 mr-2"/> Pending</span>
-                                          }
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditMember(member)}><Edit className="w-4 h-4"/></Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveMember(member._id)}><Trash2 className="w-4 h-4"/></Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                     </div>
-                  </CardContent>
-                </Card>
-            </TabsContent>
-            <TabsContent value="payments">
-                 <Card>
-                   <CardHeader>
-                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                         <div>
-                            <CardTitle>Payment History</CardTitle>
-                            <CardDescription>Record and view all payments for this group.</CardDescription>
-                         </div>
-                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                             <Dialog open={isRecordPaymentOpen} onOpenChange={setIsRecordPaymentOpen}>
-                               <DialogTrigger asChild><Button variant="outline" className="w-full sm:w-auto"><Plus className="w-4 h-4 mr-2" /> Record Single</Button></DialogTrigger>
-                               <DialogContent>
-                                 <DialogHeader><DialogTitle>Record New Payment</DialogTitle></DialogHeader>
-                                 <div className="space-y-4 py-4">
-                                   <div>
-                                     <Label htmlFor="memberId">Member</Label>
-                                     <Select onValueChange={(value) => setPaymentDetails(prev => ({...prev, memberId: value}))}><SelectTrigger><SelectValue placeholder="Select a member"/></SelectTrigger><SelectContent>{group.members.map(m => <SelectItem key={m._id} value={m._id}>{m.name}</SelectItem>)}</SelectContent></Select>
-                                   </div>
-                                   <div className="grid grid-cols-2 gap-4">
-                                     <div><Label htmlFor="month">Month</Label><Input id="month" defaultValue={paymentDetails.month} onChange={(e) => setPaymentDetails(prev => ({...prev, month: e.target.value}))}/></div>
-                                     <div><Label htmlFor="year">Year</Label><Input id="year" type="number" defaultValue={paymentDetails.year} onChange={(e) => setPaymentDetails(prev => ({...prev, year: parseInt(e.target.value)}))}/></div>
-                                   </div>
-                                   <Button onClick={handleRecordPayment} className="w-full">Record Payment</Button>
-                                 </div>
-                               </DialogContent>
-                             </Dialog>
-                             <Dialog open={isBulkPaymentOpen} onOpenChange={setIsBulkPaymentOpen}>
-                                <DialogTrigger asChild><Button className="w-full sm:w-auto"><Plus className="w-4 h-4 mr-2" /> Record Bulk</Button></DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                    <DialogHeader><DialogTitle>Bulk Record Payments</DialogTitle></DialogHeader>
-                                    <p className="text-sm text-muted-foreground">Select members who have paid for {currentMonthName} {currentYearValue}.</p>
-                                    <div className="max-h-64 overflow-y-auto space-y-2 my-4 pr-2">
-                                        {membersToPay.length > 0 ? (
-                                            <>
-                                                <div className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md cursor-pointer" onClick={() => handleSelectAllForBulk(membersToPay)}>
-                                                    <Checkbox id="selectAll" checked={bulkPaymentMembers.length === membersToPay.length && membersToPay.length > 0} />
-                                                    <label htmlFor="selectAll" className="font-medium">Select All</label>
-                                                </div>
-                                                {membersToPay.map(member => (
-                                                    <div key={member._id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-md cursor-pointer" onClick={() => handleBulkMemberSelect(member._id)}>
-                                                        <Checkbox id={member._id} checked={bulkPaymentMembers.includes(member._id)} />
-                                                        <label htmlFor={member._id}>{member.name}</label>
-                                                    </div>
-                                                ))}
-                                            </>
-                                        ) : <p className="text-center text-muted-foreground p-4">All members have paid for this month.</p>}
-                                    </div>
-                                    <Button onClick={handleBulkRecordPayment} className="w-full" disabled={bulkPaymentMembers.length === 0}>Record for {bulkPaymentMembers.length} Selected</Button>
-                                </DialogContent>
-                             </Dialog>
-                         </div>
-                     </div>
-                  </CardHeader>
-                  <CardContent>
-                     <div className="overflow-x-auto">
-                         <Table>
-                            <TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Amount</TableHead><TableHead>Date</TableHead><TableHead>Period</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                                {group.payments.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(payment => (
-                                    <TableRow key={payment._id}>
-                                        <TableCell>{payment.memberId.name}</TableCell>
-                                        <TableCell>₹{payment.amount.toLocaleString()}</TableCell>
-                                        <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
-                                        <TableCell>{payment.month} {payment.year}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                     </div>
-                  </CardContent>
-                </Card>
-            </TabsContent>
-             <TabsContent value="withdrawals">
-                <Card>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline">
+                       <Filter className="w-4 h-4 mr-2" />
+                       This Year
+                    </Button>
+                    <Button>
+                       <Download className="w-4 h-4 mr-2" />
+                       Download Info
+                    </Button>
+                </div>
+            </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Group Snapshot</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                    <Card className="p-6">
+                         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Group Pot</CardTitle>
+                            <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                         <div className="text-2xl font-bold">₹{totalPot.toLocaleString()}</div>
+                         <p className="text-xs text-muted-foreground">Full Chit Value</p>
+                    </Card>
+                     <Card className="p-6">
+                        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="text-2xl font-bold">{group.members.length} / {group.totalMembers}</div>
+                        <p className="text-xs text-muted-foreground">Currently in group</p>
+                    </Card>
+                    <Card className="p-6">
+                        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Collections ({currentMonthName})</CardTitle>
+                            <Banknote className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="text-2xl font-bold">₹{totalCollected.toLocaleString()}</div>
+                         <p className="text-xs text-muted-foreground">{paidThisMonth.length} of {group.members.length} paid</p>
+                    </Card>
+                     <Card className="p-6">
+                        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Current Cycle</CardTitle>
+                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="text-2xl font-bold">{group.currentCycle} of {group.totalMembers}</div>
+                        <p className="text-xs text-muted-foreground">Month {group.currentCycle} in progress</p>
+                    </Card>
+                </CardContent>
+            </Card>
+
+            <Card>
+                 <Tabs defaultValue="members" className="w-full">
                     <CardHeader>
                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
-                               <CardTitle>Withdrawal History</CardTitle>
-                               <CardDescription>Manage this cycle's auction and view past winners.</CardDescription>
+                                <h2 className="text-xl font-bold tracking-tight">Group Management</h2>
                             </div>
-                           <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
-                                <DialogTrigger asChild>
-                                    <Button className="w-full sm:w-auto" disabled={!!currentCycleWithdrawal || group.currentCycle > group.totalMembers}>
-                                        <Landmark className="w-4 h-4 mr-2" /> Record Auction
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                    <DialogHeader><DialogTitle>Record Cycle {group.currentCycle} Auction</DialogTitle></DialogHeader>
-                                    <div className="space-y-4 py-4">
-                                        <div>
-                                            <Label>Winner</Label>
-                                            <Select onValueChange={(value) => setWithdrawalDetails(p => ({...p, winnerId: value}))}>
-                                                <SelectTrigger><SelectValue placeholder="Select the winner" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {group.members.map(m => (
-                                                        <SelectItem key={m._id} value={m._id}>{m.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div>
-                                            <Label>Final Bid Amount</Label>
-                                            <Input type="number" placeholder="Enter the winning bid amount" value={withdrawalDetails.bidAmount} onChange={(e) => setWithdrawalDetails(p => ({...p, bidAmount: e.target.value}))}/>
-                                            <p className="text-xs text-muted-foreground mt-1">This is the amount the winner receives.</p>
-                                        </div>
-                                        <Button onClick={handleRecordWithdrawal} className="w-full">Save Withdrawal</Button>
-                                    </div>
-                                </DialogContent>
-                            </Dialog>
+                            <TabsList>
+                                <TabsTrigger value="members"><Users className="w-4 h-4 mr-2"/>Members</TabsTrigger>
+                                <TabsTrigger value="payments"><History className="w-4 h-4 mr-2"/>Payments</TabsTrigger>
+                                <TabsTrigger value="withdrawals"><Landmark className="w-4 h-4 mr-2"/>Auctions</TabsTrigger>
+                                <TabsTrigger value="settings"><FileCog className="w-4 h-4 mr-2"/>Settings</TabsTrigger>
+                            </TabsList>
                         </div>
                     </CardHeader>
+                    
                     <CardContent>
-                       <div className="overflow-x-auto">
-                           <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead>Cycle</TableHead>
-                                      <TableHead>Winner</TableHead>
-                                      <TableHead>Bid Amount</TableHead>
-                                      <TableHead>Foreman Fee</TableHead>
-                                      <TableHead>Member Dividend</TableHead>
-                                      <TableHead>Date</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {group.withdrawals.slice().sort((a,b) => b.year - a.year || new Date(Date.parse(b.month +" 1, 2012")).getMonth() - new Date(Date.parse(a.month +" 1, 2012")).getMonth()).map((w, index) => (
-                                      <TableRow key={w._id}>
-                                          <TableCell>{group.withdrawals.length - index}</TableCell>
-                                          <TableCell>{w.winnerId.name}</TableCell>
-                                          <TableCell>₹{w.bidAmount.toLocaleString()}</TableCell>
-                                          <TableCell>₹{w.foremanCommission.toLocaleString()}</TableCell>
-                                          <TableCell>₹{w.dividend.toLocaleString()}</TableCell>
-                                          <TableCell>{new Date(w.date).toLocaleDateString()}</TableCell>
-                                      </TableRow>
-                                  ))}
-                              </TableBody>
-                          </Table>
-                       </div>
+                        <TabsContent value="members">
+                            <div className="flex justify-end mb-4">
+                                <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+                                <DialogTrigger asChild>
+                                    <Button><Plus className="w-4 h-4 mr-2" /> Add Member</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader><DialogTitle>Add New Member</DialogTitle></DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                    <div><Label htmlFor="name">Name</Label><Input id="name" value={newMember.name} onChange={(e) => setNewMember({ ...newMember, name: e.target.value })} placeholder="Enter member's full name" /></div>
+                                    <div><Label htmlFor="phone">Phone</Label><Input id="phone" value={newMember.phone} onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })} placeholder="Enter 10-digit mobile number" /></div>
+                                    <Button onClick={handleAddMember} className="w-full">Add Member</Button>
+                                    </div>
+                                </DialogContent>
+                                </Dialog>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Telegram</TableHead><TableHead>Payment ({currentMonthName})</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                                    <TableBody>
+                                        {group.members.map(member => (
+                                            <TableRow key={member._id}>
+                                                <TableCell className="font-medium">{member.name}</TableCell>
+                                                <TableCell>{member.phone}</TableCell>
+                                                <TableCell>
+                                                    {member.telegramId ? (
+                                                        <Badge variant="outline" className="bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 border-sky-200 dark:border-sky-600/50">
+                                                            <Bot className="w-3.5 h-3.5 mr-1.5"/> Linked
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary">
+                                                            <LinkIcon className="w-3.5 h-3.5 mr-1.5"/>
+                                                            Code: {member.telegramLinkCode}
+                                                        </Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                {paidThisMonth.some(p => p.memberId && p.memberId._id === member._id) ? 
+                                                    <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-600/50">Paid</Badge> : 
+                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 border-yellow-200 dark:border-yellow-600/50">Pending</Badge>
+                                                }
+                                                </TableCell>
+                                                <TableCell className="text-right space-x-1">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditMember(member)}><Edit className="w-4 h-4"/></Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90" onClick={() => handleRemoveMember(member._id)}><Trash2 className="w-4 h-4"/></Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {group.members.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24">No members yet.</TableCell></TableRow>}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </TabsContent>
+                        
+                        <TabsContent value="payments">
+                             <div className="flex justify-end gap-2 mb-4">
+                                <Dialog open={isRecordPaymentOpen} onOpenChange={setIsRecordPaymentOpen}>
+                                    <DialogTrigger asChild><Button variant="outline"><Plus className="w-4 h-4 mr-2" /> Record Single</Button></DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader><DialogTitle>Record New Payment</DialogTitle></DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                        <div>
+                                            <Label htmlFor="memberId">Member</Label>
+                                            <Select onValueChange={(value) => setPaymentDetails(prev => ({...prev, memberId: value}))}><SelectTrigger><SelectValue placeholder="Select a member"/></SelectTrigger><SelectContent>{group.members.map(m => <SelectItem key={m._id} value={m._id}>{m.name}</SelectItem>)}</SelectContent></Select>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><Label htmlFor="month">Month</Label><Input id="month" defaultValue={paymentDetails.month} onChange={(e) => setPaymentDetails(prev => ({...prev, month: e.target.value}))}/></div>
+                                            <div><Label htmlFor="year">Year</Label><Input id="year" type="number" defaultValue={paymentDetails.year} onChange={(e) => setPaymentDetails(prev => ({...prev, year: parseInt(e.target.value)}))}/></div>
+                                        </div>
+                                        <Button onClick={handleRecordPayment} className="w-full">Record Payment</Button>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                                <Dialog open={isBulkPaymentOpen} onOpenChange={setIsBulkPaymentOpen}>
+                                    <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Record Bulk</Button></DialogTrigger>
+                                    <DialogContent className="max-w-md">
+                                        <DialogHeader>
+                                        <DialogTitle>Bulk Record Payments</DialogTitle>
+                                        <CardDescription>Select members who have paid for {currentMonthName} {currentYearValue}.</CardDescription>
+                                        </DialogHeader>
+                                        <div className="max-h-64 overflow-y-auto space-y-1 my-4 pr-2">
+                                            {membersToPay.length > 0 ? (
+                                                <>
+                                                    <div className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md cursor-pointer" onClick={() => handleSelectAllForBulk(membersToPay)}>
+                                                        <Checkbox id="selectAll" checked={bulkPaymentMembers.length === membersToPay.length && membersToPay.length > 0} onCheckedChange={() => handleSelectAllForBulk(membersToPay)} />
+                                                        <label htmlFor="selectAll" className="font-medium cursor-pointer">Select All Pending</label>
+                                                    </div>
+                                                    {membersToPay.map(member => (
+                                                        <div key={member._id} className="flex items-center space-x-3 p-2 hover:bg-muted rounded-md cursor-pointer" onClick={() => handleBulkMemberSelect(member._id)}>
+                                                            <Checkbox id={member._id} checked={bulkPaymentMembers.includes(member._id)} onCheckedChange={() => handleBulkMemberSelect(member._id)} />
+                                                            <label htmlFor={member._id} className="cursor-pointer">{member.name}</label>
+                                                        </div>
+                                                    ))}
+                                                </>
+                                            ) : <p className="text-center text-muted-foreground p-4">All members have paid for this month.</p>}
+                                        </div>
+                                        <Button onClick={handleBulkRecordPayment} className="w-full" disabled={bulkPaymentMembers.length === 0}>Record for {bulkPaymentMembers.length} Selected</Button>
+                                    </DialogContent>
+                                </Dialog>
+                             </div>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Amount</TableHead><TableHead>Date</TableHead><TableHead>Period</TableHead></TableRow></TableHeader>
+                                    <TableBody>
+                                        {group.payments.slice().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(payment => (
+                                            <TableRow key={payment._id}>
+                                                <TableCell>{payment.memberId?.name || "Deleted Member"}</TableCell>
+                                                <TableCell>₹{payment.amount.toLocaleString()}</TableCell>
+                                                <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                                                <TableCell>{payment.month} {payment.year}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {group.payments.length === 0 && <TableRow><TableCell colSpan={4} className="text-center h-24">No payments recorded yet.</TableCell></TableRow>}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="withdrawals">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                {group.currentCycle < group.totalMembers && (
+                                    <Button onClick={handleNextCycle} variant="outline">
+                                        <ChevronsRight className="w-4 h-4 mr-2"/>
+                                        Advance to Cycle {group.currentCycle + 1}
+                                    </Button>
+                                )}
+                                </div>
+                                <Dialog open={isWithdrawalOpen} onOpenChange={setIsWithdrawalOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button disabled={!!currentCycleWithdrawal || group.currentCycle > group.totalMembers}>
+                                            <Landmark className="w-4 h-4 mr-2" /> Record Withdrawal
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader><DialogTitle>Record Cycle {group.currentCycle} Withdrawal</DialogTitle></DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <Label>Withdrawal Type</Label>
+                                                <ToggleGroup 
+                                                    type="single" 
+                                                    defaultValue="auction" 
+                                                    className="w-full grid grid-cols-2"
+                                                    onValueChange={(value) => setWithdrawalDetails(p => ({...p, type: value || 'auction'}))}
+                                                >
+                                                    <ToggleGroupItem value="auction" aria-label="Toggle auction">Auction</ToggleGroupItem>
+                                                    <ToggleGroupItem value="fcfs" aria-label="Toggle FCFS">FCFS</ToggleGroupItem>
+                                                </ToggleGroup>
+                                            </div>
+                                            
+                                            <div>
+                                                <Label>Winner / Recipient</Label>
+                                                <Select onValueChange={(value) => setWithdrawalDetails(p => ({...p, winnerId: value}))}>
+                                                    <SelectTrigger><SelectValue placeholder="Select the member" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {group.members
+                                                            .filter(m => !group.withdrawals.some(w => w.winnerId && w.winnerId._id === m._id))
+                                                            .map(m => (
+                                                            <SelectItem key={m._id} value={m._id}>{m.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            {withdrawalDetails.type === 'auction' && (
+                                                <div>
+                                                    <Label>Final Bid Amount</Label>
+                                                    <Input type="number" placeholder="Enter the winning bid amount" value={withdrawalDetails.bidAmount} onChange={(e) => setWithdrawalDetails(p => ({...p, bidAmount: e.target.value}))}/>
+                                                    <p className="text-xs text-muted-foreground mt-1">This is the amount the winner receives.</p>
+                                                </div>
+                                            )}
+                                            <Button onClick={handleRecordWithdrawal} className="w-full">Save Withdrawal</Button>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Cycle</TableHead>
+                                        <TableHead>Winner</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Prize Amount</TableHead>
+                                        <TableHead>Foreman Fee</TableHead>
+                                        <TableHead>Member Dividend</TableHead>
+                                        <TableHead>Date</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {group.withdrawals.slice().sort((a,b) => b.year - a.year || new Date(Date.parse(b.month +" 1, 2012")).getMonth() - new Date(Date.parse(a.month +" 1, 2012")).getMonth()).map((w, index) => (
+                                        <TableRow key={w._id}>
+                                            <TableCell>{group.withdrawals.length - index}</TableCell>
+                                            <TableCell>{w.winnerId?.name || "Deleted Member"}</TableCell>
+                                            <TableCell><Badge variant={w.type === 'auction' ? 'default' : 'secondary'} className="capitalize">{w.type}</Badge></TableCell>
+                                            <TableCell>₹{w.bidAmount.toLocaleString()}</TableCell>
+                                            <TableCell>₹{w.foremanCommission.toLocaleString()}</TableCell>
+                                            <TableCell>₹{w.dividend.toLocaleString()}</TableCell>
+                                            <TableCell>{new Date(w.date).toLocaleDateString()}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {group.withdrawals.length === 0 && <TableRow><TableCell colSpan={7} className="text-center h-24">No auctions or withdrawals recorded yet.</TableCell></TableRow>}
+                                </TableBody>
+                            </Table>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="settings">
+                            <div className="space-y-6 max-w-lg mx-auto py-8">
+                                <div className="space-y-2">
+                                    <Label htmlFor="groupName">Group Name</Label>
+                                    <Input id="groupName" value={groupSettings.name} onChange={(e) => setGroupSettings({...groupSettings, name: e.target.value})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="amountPerCycle">Amount per Cycle (₹)</Label>
+                                    <Input id="amountPerCycle" type="number" value={groupSettings.amountPerCycle} onChange={(e) => setGroupSettings({...groupSettings, amountPerCycle: e.target.value})} />
+                                </div>
+                                <Button onClick={handleUpdateGroupSettings} className="w-full sm:w-auto">
+                                    <Save className="w-4 h-4 mr-2" /> Save Changes
+                                </Button>
+                            </div>
+                        </TabsContent>
                     </CardContent>
-                </Card>
-            </TabsContent>
-            <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Group Settings</CardTitle>
-                  <CardDescription>Update the core details of this group.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                   <div className="space-y-2">
-                     <Label htmlFor="groupName">Group Name</Label>
-                     <Input id="groupName" value={groupSettings.name} onChange={(e) => setGroupSettings({...groupSettings, name: e.target.value})} />
-                   </div>
-                   <div className="space-y-2">
-                     <Label htmlFor="amountPerCycle">Amount per Cycle (₹)</Label>
-                     <Input id="amountPerCycle" type="number" value={groupSettings.amountPerCycle} onChange={(e) => setGroupSettings({...groupSettings, amountPerCycle: e.target.value})} />
-                   </div>
-                   <div className="space-y-2">
-                     <Label htmlFor="totalMembers">Total Members</Label>
-                     <Input id="totalMembers" type="number" value={groupSettings.totalMembers} onChange={(e) => setGroupSettings({...groupSettings, totalMembers: e.target.value})} />
-                   </div>
-                   <Button onClick={handleUpdateGroupSettings} className="w-full sm:w-auto">
-                     <Save className="w-4 h-4 mr-2" /> Save Changes
-                   </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-        </Tabs>
-      </div>
+                </Tabs>
+            </Card>
+        </main>
 
-       {editingMember && (
-        <Dialog open={isEditMemberOpen} onOpenChange={setIsEditMemberOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Member: {editingMember.name}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label htmlFor="edit-name">Name</Label>
-                <Input id="edit-name" value={editingMember.name} onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="edit-phone">Phone</Label>
-                <Input id="edit-phone" value={editingMember.phone} onChange={(e) => setEditingMember({ ...editingMember, phone: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="edit-telegramId">Telegram ID (Optional)</Label>
-                <Input id="edit-telegramId" value={editingMember.telegramId || ''} onChange={(e) => setEditingMember({ ...editingMember, telegramId: e.target.value })} />
-              </div>
-              <Button onClick={handleUpdateMember} className="w-full">Save Changes</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-    </DashboardLayout>
+        {editingMember && (
+            <Dialog open={isEditMemberOpen} onOpenChange={setIsEditMemberOpen}>
+            <DialogContent>
+                <DialogHeader>
+                <DialogTitle>Edit Member: {editingMember.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                <div>
+                    <Label htmlFor="edit-name">Name</Label>
+                    <Input id="edit-name" value={editingMember.name} onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })} />
+                </div>
+                <div>
+                    <Label htmlFor="edit-phone">Phone</Label>
+                    <Input id="edit-phone" value={editingMember.phone} onChange={(e) => setEditingMember({ ...editingMember, phone: e.target.value })} />
+                </div>
+                <div>
+                    <Label htmlFor="edit-telegramId">Telegram User ID (Optional)</Label>
+                    <Input id="edit-telegramId" value={editingMember.telegramId || ''} onChange={(e) => setEditingMember({ ...editingMember, telegramId: e.target.value })} placeholder="e.g., 123456789. Get via @userinfobot"/>
+                    <p className="text-xs text-muted-foreground mt-1">This ID is linked automatically. Edit only if necessary.</p>
+                </div>
+                <Button onClick={handleUpdateMember} className="w-full">Save Changes</Button>
+                </div>
+            </DialogContent>
+            </Dialog>
+        )}
+    </div>
   )
 }
 

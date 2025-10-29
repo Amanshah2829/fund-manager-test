@@ -1,17 +1,17 @@
-
 "use client"
 
 import type React from "react"
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
-import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Loader2, AlertCircle, Building2 } from "lucide-react"
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -48,8 +48,8 @@ export default function SignupPage() {
 
       if (response.ok) {
         toast({
-          title: "Signup Successful",
-          description: "Your account has been created. Please log in.",
+          title: "Account Created!",
+          description: "You have successfully signed up. Please log in.",
         })
         router.push("/login")
       } else {
@@ -64,62 +64,78 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Create a Foreman Account</CardTitle>
-          <CardDescription>Join to manage your chit funds digitally.</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
+    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
+       <div className="hidden bg-muted lg:block">
+        <Image
+          src="https://picsum.photos/seed/signup/1200/1800"
+          alt="Abstract financial background"
+          data-ai-hint="finance office"
+          width="1200"
+          height="1800"
+          className="h-full w-full object-cover"
+        />
+      </div>
+      <div className="flex items-center justify-center p-6 sm:p-12">
+        <div className="mx-auto grid w-[380px] gap-8">
+          <div className="grid gap-2 text-center">
+            <Link href="#" className="flex items-center justify-center text-primary font-bold text-3xl mb-4 gap-2">
+                <Building2 className="h-8 w-8" />
+                ChitFund
+            </Link>
+            <h1 className="text-3xl font-bold">Create an Account</h1>
+            <p className="text-balance text-muted-foreground">
+              Enter your information to create a foreman account.
+            </p>
+          </div>
+          <form onSubmit={handleSubmit} className="grid gap-6">
+             {error && (
               <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Signup Failed</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input id="name" name="name" type="text" required placeholder="Enter your full name" />
+              <Input id="name" name="name" placeholder="Max Robinson" required disabled={isLoading} className="py-6" />
             </div>
-
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required placeholder="Enter your email" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="m@example.com"
+                required
+                disabled={isLoading}
+                className="py-6"
+              />
             </div>
-            
-             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" name="phone" type="tel" required placeholder="Enter your phone number" />
+             <div className="grid gap-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" name="phone" placeholder="9876543210" required disabled={isLoading} className="py-6" />
             </div>
-
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required placeholder="Create a password" />
+              <Input id="password" name="password" type="password" required disabled={isLoading} className="py-6" />
             </div>
-            
-             <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input id="confirmPassword" name="confirmPassword" type="password" required placeholder="Confirm your password" />
+              <Input id="confirmPassword" name="confirmPassword" type="password" required disabled={isLoading} className="py-6" />
             </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Account
+            <Button type="submit" className="w-full py-6 text-base font-semibold" disabled={isLoading}>
+               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create an account
             </Button>
-          </CardContent>
-          <CardFooter className="flex flex-col items-center text-sm">
-            <p className="text-muted-foreground">
-              Already have an account?&nbsp;
-              <Link href="/login" className="text-primary hover:underline">
-                Log In
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
+          </form>
+          <div className="mt-4 text-center text-sm">
+            Already have an account?{" "}
+            <Link href="/login" className="underline text-primary">
+              Sign in
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
-
-    

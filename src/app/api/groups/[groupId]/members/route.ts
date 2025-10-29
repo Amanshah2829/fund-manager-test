@@ -6,6 +6,10 @@ import { UserModel } from "@/backend/models/User";
 
 export const dynamic = 'force-dynamic';
 
+function generateLinkCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 // Add a member to a group
 export async function POST(request: NextRequest, { params }: { params: { groupId: string } }) {
   try {
@@ -38,12 +42,19 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
       }
     }
     
-    // For simplicity in this app, we will always create a new user entity per membership.
-    // This avoids complex logic of handling a single user being in multiple groups.
+    // Generate a unique link code
+    let linkCode = generateLinkCode();
+    let existingCodeUser = await UserModel.findOne({ telegramLinkCode: linkCode });
+    while (existingCodeUser) {
+        linkCode = generateLinkCode();
+        existingCodeUser = await UserModel.findOne({ telegramLinkCode: linkCode });
+    }
+    
     const newUser = new UserModel({
         name,
         phone,
         telegramId: telegramId || null,
+        telegramLinkCode: linkCode,
         role: 'user', // Explicitly set the role
         groups: [group._id]
     });
@@ -66,5 +77,3 @@ export async function POST(request: NextRequest, { params }: { params: { groupId
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
-
-    

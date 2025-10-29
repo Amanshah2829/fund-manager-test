@@ -2,17 +2,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Users, DollarSign, Plus, ArrowRight, TrendingUp } from "lucide-react"
+import { Loader2, Plus, Users, IndianRupee, Landmark } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
+import { Header } from "@/components/layout/header"
 
 interface Group {
   _id: string
@@ -35,7 +34,7 @@ export default function AdminDashboard() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formData, setFormData] = useState(initialFormState)
   const { toast } = useToast()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
 
   const fetchGroups = async () => {
     setLoading(true)
@@ -47,7 +46,6 @@ export default function AdminDashboard() {
         const errorData = await response.json().catch(() => ({ message: "Failed to fetch groups" }));
         toast({ variant: "destructive", title: "Failed to fetch groups", description: errorData.message })
         if (response.status === 401) {
-            // The useAuth hook should handle this, but as a backup
             window.location.href = "/login";
         }
       }
@@ -100,151 +98,105 @@ export default function AdminDashboard() {
     }
   }
 
-  const totalMembers = groups.reduce((sum, group) => sum + group.members.length, 0)
-  const totalValue = groups.reduce((sum, group) => sum + (group.amountPerCycle * group.totalMembers), 0);
-  const activeMembers = groups.reduce((sum, group) => sum + group.members.length, 0);
-
-
-  if (loading && !groups.length) { // Show loader only on initial load
+  if (authLoading || !user) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="animate-spin text-primary h-12 w-12" />
-        </div>
-      </DashboardLayout>
-    )
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Foreman Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back! Here's an overview of your chit fund groups.</p>
-          </div>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">
-                <Plus className="w-5 h-5 mr-2" />
-                Create New Group
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Create New Chit Group</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div>
-                  <Label htmlFor="name" className="text-right">Group Name</Label>
-                  <Input id="name" value={formData.name} onChange={handleInputChange} placeholder="e.g., Friends & Family Group" className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="amountPerCycle" className="text-right">Amount per Cycle (₹)</Label>
-                  <Input id="amountPerCycle" type="number" value={formData.amountPerCycle} onChange={handleInputChange} placeholder="e.g., 5000" className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="totalMembers" className="text-right">Total Members</Label>
-                  <Input id="totalMembers" type="number" value={formData.totalMembers} onChange={handleInputChange} placeholder="e.g., 20" className="mt-1" />
-                </div>
-                <Button onClick={handleCreateGroup} className="w-full mt-4" size="lg">
-                  Create Group
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Groups</CardTitle>
-              <Users className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">{groups.length}</div>
-              <p className="text-xs text-muted-foreground">Managed groups</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Chit Value</CardTitle>
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">₹{totalValue.toLocaleString()}</div>
-               <p className="text-xs text-muted-foreground">Across all groups</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Active Members</CardTitle>
-              <Users className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">{activeMembers}</div>
-               <p className="text-xs text-muted-foreground">Currently participating</p>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Collections</CardTitle>
-              <TrendingUp className="w-4 h-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">₹{groups.reduce((sum, group) => sum + (group.amountPerCycle * group.members.length), 0).toLocaleString()}</div>
-               <p className="text-xs text-muted-foreground">Estimated for current cycle</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>My Chit Groups</CardTitle>
-            <CardDescription>Click on a group to view details and manage its members and payments.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[250px] min-w-[200px]">Group Name</TableHead>
-                      <TableHead>Members</TableHead>
-                      <TableHead>Amount/Cycle</TableHead>
-                      <TableHead>Current Cycle</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {groups.length > 0 ? groups.map((group) => (
-                      <TableRow key={group._id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">{group.name}</TableCell>
-                        <TableCell>{group.members.length} / {group.totalMembers}</TableCell>
-                        <TableCell>₹{group.amountPerCycle.toLocaleString()}</TableCell>
-                        <TableCell>{group.currentCycle}</TableCell>
-                        <TableCell className="text-right">
-                          <Link href={`/admin/groups/${group._id}`}>
-                            <Button variant="outline" size="sm">
-                              Manage <ArrowRight className="w-4 h-4 ml-2" />
-                            </Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                          No groups found. Create your first group to get started!
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+    <div className="min-h-screen bg-background text-foreground">
+      <Header />
+      <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="space-y-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome, {user?.name.split(' ')[0]}!</h1>
+              <p className="text-muted-foreground mt-1">Here's a snapshot of your chit fund activities.</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </DashboardLayout>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Group
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Chit Group</DialogTitle>
+                  <DialogDescription>Fill in the details to start a new group.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div>
+                    <Label htmlFor="name">Group Name</Label>
+                    <Input id="name" value={formData.name} onChange={handleInputChange} placeholder="e.g., Friends & Family Chit" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label htmlFor="amountPerCycle">Contribution Amount (₹)</Label>
+                    <Input id="amountPerCycle" type="number" value={formData.amountPerCycle} onChange={handleInputChange} placeholder="e.g., 5000" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label htmlFor="totalMembers">Number of Members</Label>
+                    <Input id="totalMembers" type="number" value={formData.totalMembers} onChange={handleInputChange} placeholder="e.g., 20" className="mt-1" />
+                  </div>
+                  <Button onClick={handleCreateGroup} className="w-full mt-4">
+                    Create Group
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card className="bg-card border-none rounded-xl">
+            <CardHeader>
+                <h2 className="text-2xl font-bold tracking-tight title-highlight">My Chit Groups</h2>
+                <p className="text-muted-foreground">Click on a group to view details and manage its members and payments.</p>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center items-center h-40">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groups.length > 0 ? groups.map((group) => (
+                    <Link href={`/admin/groups/${group._id}`} key={group._id} className="block hover:-translate-y-1 transition-transform duration-200">
+                      <Card className="bg-background hover:bg-muted/50 transition-colors h-full flex flex-col">
+                        <CardHeader>
+                          <CardTitle className="text-lg font-semibold">{group.name}</CardTitle>
+                          <CardDescription>
+                            ₹{(group.amountPerCycle * group.totalMembers).toLocaleString()} Total Value
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow space-y-4 text-sm">
+                          <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground flex items-center gap-2"><Users className="w-4 h-4" /> Members</span>
+                              <span>{group.members.length} / {group.totalMembers}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground flex items-center gap-2"><IndianRupee className="w-4 h-4" /> Contribution</span>
+                              <span>₹{group.amountPerCycle.toLocaleString()}</span>
+                          </div>
+                           <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground flex items-center gap-2"><Landmark className="w-4 h-4" /> Cycle</span>
+                              <span>{group.currentCycle} / {group.totalMembers}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )) : (
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-16">
+                      <p className="text-muted-foreground">No groups found. Create your first group to get started!</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
   )
 }
-
-    

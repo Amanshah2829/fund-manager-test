@@ -1,4 +1,4 @@
- # Netlify configuration file
+# Netlify configuration file
 
 [build]
   command = "npm run build"
@@ -7,13 +7,12 @@
 [dev]
   command = "next dev"
 
-# This plugin is essential for correctly deploying Next.js sites with server-side
-# rendering (SSR), API routes, and other dynamic features.
-[plugins]
+# Plugin required for Next.js SSR and API routes
+[[plugins]]
   package = "@netlify/plugin-nextjs"
-  
+
 [build.environment]
-  # Make sure to set these in your Netlify site settings for production
+  # Set these securely in Netlify UI (Site Settings → Environment Variables)
   MONGODB_URI = "your_mongodb_connection_string"
   JWT_SECRET = "your-super-secret-key-that-is-long-and-secure"
   TELEGRAM_BOT_TOKEN = "your_telegram_bot_token"

@@ -5,7 +5,7 @@ import { seedDatabase } from './seed';
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside backend/.env');
+  throw new Error('Please define the MONGODB_URI environment variable inside .env or your deployment environment');
 }
 
 /**
@@ -36,10 +36,6 @@ async function dbConnect(): Promise<Mongoose> {
       // Seed the database right after connection if needed
       await seedDatabase();
       return mongoose;
-    }).catch(err => {
-        console.error("Database connection failed:", err);
-        cached.promise = null; // Reset promise on error
-        throw err;
     });
   }
   
@@ -54,5 +50,3 @@ async function dbConnect(): Promise<Mongoose> {
 }
 
 export default dbConnect;
-
-    

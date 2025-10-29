@@ -1,8 +1,6 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Save, Bot, KeyRound, ArrowRight } from "lucide-react"
 import Link from "next/link"
+import { Header } from "@/components/layout/header"
 
 interface Settings {
   telegramBotToken?: string;
@@ -148,138 +147,125 @@ export default function SettingsPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">Manage your application and integration settings.</p>
-        </div>
-        
-         {isFetching ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          </div>
-        ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                       <KeyRound className="w-6 h-6 text-primary" />
-                   </div>
-                   <div>
-                      <CardTitle>Change Password</CardTitle>
-                      <CardDescription>Update your account's password.</CardDescription>
-                   </div>
+    <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+            <div className="space-y-8">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight title-highlight">Settings</h1>
+                    <p className="text-muted-foreground mt-1">Manage your application and integration settings.</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Current Password</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={passwordData.currentPassword}
-                    onChange={handlePasswordInputChange}
-                    placeholder="Enter your current password"
-                  />
+                
+                {isFetching ? (
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
                 </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={handlePasswordInputChange}
-                    placeholder="Enter your new password"
-                  />
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={handlePasswordInputChange}
-                    placeholder="Confirm your new password"
-                  />
-                </div>
-                <Button onClick={handlePasswordChange} disabled={isPasswordLoading} className="w-full sm:w-auto">
-                  {isPasswordLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Change Password
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                       <Bot className="w-6 h-6 text-primary" />
-                   </div>
-                   <div>
-                      <CardTitle>Telegram Integration</CardTitle>
-                      <CardDescription>Connect your bot to send notifications. The Chat ID is for your main admin channel.</CardDescription>
-                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="telegramBotToken">Telegram Bot Token</Label>
-                  <Input
-                    id="telegramBotToken"
-                    type="password"
-                    value={settings.telegramBotToken || ''}
-                    onChange={handleInputChange}
-                    placeholder="Enter new token to update"
-                    onFocus={(e) => {
-                      if(e.target.value.includes('*')) {
-                        setSettings(prev => ({...prev, telegramBotToken: ''}))
-                      }
-                    }}
-                  />
-                   <p className="text-xs text-muted-foreground">
-                    Your token is secret. It is stored securely in the database.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telegramChatId">Admin Group/Channel ID</Label>
-                  <Input
-                    id="telegramChatId"
-                    value={settings.telegramChatId || ''}
-                    onChange={handleInputChange}
-                    placeholder="Enter the target chat ID or channel ID"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    This is where admin-level notifications will be sent.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                    <Button onClick={handleSaveSettings} disabled={isLoading} className="w-full sm:w-auto">
-                      {isLoading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="mr-2 h-4 w-4" />
-                      )}
-                      Save Settings
-                    </Button>
-                     <Link href="/admin/settings/telegram-logs" className="w-full sm:w-auto">
-                        <Button variant="outline" className="w-full">
-                            View Logs <ArrowRight className="ml-2 h-4 w-4" />
+                ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                    <Card className="bg-card border-none rounded-xl">
+                    <CardHeader>
+                        <CardTitle>Change Password</CardTitle>
+                        <CardDescription>Update your account's password.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                        <Label htmlFor="currentPassword">Current Password</Label>
+                        <Input
+                            id="currentPassword"
+                            type="password"
+                            value={passwordData.currentPassword}
+                            onChange={handlePasswordInputChange}
+                            placeholder="Enter your current password"
+                        />
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <Input
+                            id="newPassword"
+                            type="password"
+                            value={passwordData.newPassword}
+                            onChange={handlePasswordInputChange}
+                            placeholder="Enter your new password"
+                        />
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                        <Input
+                            id="confirmPassword"
+                            type="password"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordInputChange}
+                            placeholder="Confirm your new password"
+                        />
+                        </div>
+                        <Button onClick={handlePasswordChange} disabled={isPasswordLoading}>
+                        {isPasswordLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                        )}
+                        Change Password
                         </Button>
-                    </Link>
+                    </CardContent>
+                    </Card>
+
+                    <Card className="bg-card border-none rounded-xl">
+                    <CardHeader>
+                        <CardTitle>Telegram Integration</CardTitle>
+                        <CardDescription>Connect your bot to send notifications.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                        <Label htmlFor="telegramBotToken">Telegram Bot Token</Label>
+                        <Input
+                            id="telegramBotToken"
+                            type="password"
+                            value={settings.telegramBotToken || ''}
+                            onChange={handleInputChange}
+                            placeholder="Enter new token to update"
+                            onFocus={(e) => {
+                            if(e.target.value.includes('*')) {
+                                setSettings(prev => ({...prev, telegramBotToken: ''}))
+                            }
+                            }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Your token is secret. It is stored securely.
+                        </p>
+                        </div>
+                        <div className="space-y-2">
+                        <Label htmlFor="telegramChatId">Admin Group/Channel ID</Label>
+                        <Input
+                            id="telegramChatId"
+                            value={settings.telegramChatId || ''}
+                            onChange={handleInputChange}
+                            placeholder="Enter the target chat ID or channel ID"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            This is where admin-level notifications will be sent.
+                        </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Button onClick={handleSaveSettings} disabled={isLoading}>
+                            {isLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="mr-2 h-4 w-4" />
+                            )}
+                            Save Settings
+                            </Button>
+                            <Link href="/admin/settings/telegram-logs" className="w-full sm:w-auto">
+                                <Button variant="outline" className="w-full">
+                                    View Logs <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </Link>
+                        </div>
+                    </CardContent>
+                    </Card>
                 </div>
-              </CardContent>
-            </Card>
-        </div>
-        )}
-      </div>
-    </DashboardLayout>
+                )}
+            </div>
+        </main>
+    </div>
   )
 }
-
-    

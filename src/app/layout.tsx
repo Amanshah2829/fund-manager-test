@@ -1,17 +1,19 @@
-
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "@/hooks/useAuth"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ 
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
 
 export const metadata: Metadata = {
-  title: "Chit Fund Management",
-  description: "A comprehensive chit fund management system",
+  title: "Chit Fund Manager",
+  description: "A modern, web-based platform to manage chit fund groups efficiently.",
 }
 
 export default function RootLayout({
@@ -22,10 +24,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider 
+          attribute="class" 
+          defaultTheme="dark" 
+          enableSystem
+          disableTransitionOnChange
+        >
           <AuthProvider>
             {children}
-            <Toaster />
+            <Toaster position="top-right" />
           </AuthProvider>
         </ThemeProvider>
       </body>
