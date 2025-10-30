@@ -8,17 +8,30 @@ interface LogDetails {
     groupId?: string;
 }
 
+async function logTelegramAttempt(chatId: string, text: string, status: 'Success' | 'Failed', error?: string, logDetails: LogDetails = {}) {
+    try {
+        await dbConnect();
+        await new TelegramLogModel({
+            ...logDetails,
+            recipient: chatId,
+            message: text,
+            status: status,
+            error: error,
+        }).save();
+    } catch (dbError) {
+        // This is a critical failure in the logging system itself.
+        console.error("CRITICAL: Failed to write to TelegramLogModel.", dbError);
+    }
+}
+
 /**
  * Sends a message to a given Telegram chat ID and robustly logs the attempt.
  * @param chatId The chat ID to send the message to.
  * @param text The message text. Supports Markdown.
  */
 export async function sendTelegramMessage(chatId: string, text: string, logDetails: LogDetails = {}) {
-  await dbConnect(); // Ensure DB is connected first.
-  let logStatus: 'Success' | 'Failed' = 'Failed';
-  let logError: string | undefined;
-
   try {
+    await dbConnect();
     const tokenSetting = await SettingModel.findOne({ key: 'telegramBotToken' });
     const TELEGRAM_BOT_TOKEN = tokenSetting?.value;
 
@@ -43,28 +56,15 @@ export async function sendTelegramMessage(chatId: string, text: string, logDetai
       throw new Error(`Telegram API Error: ${errorData.description || 'Unknown error'}`);
     }
 
-    logStatus = 'Success';
-    console.log(`Telegram message sent successfully to ${chatId}`);
+    // Log success without holding up the response
+    logTelegramAttempt(chatId, text, 'Success', undefined, logDetails);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
     console.error("Error sending Telegram message:", errorMessage);
-    logError = errorMessage;
-    logStatus = 'Failed';
-  } finally {
-    // This block ALWAYS runs, ensuring a log is created.
-    try {
-      await new TelegramLogModel({
-        ...logDetails,
-        recipient: chatId,
-        message: text,
-        status: logStatus,
-        error: logError,
-      }).save();
-    } catch (dbError) {
-      console.error("CRITICAL: Failed to write to TelegramLogModel.", dbError);
-    }
+    // Log failure without holding up the response
+    logTelegramAttempt(chatId, text, 'Failed', errorMessage, logDetails);
+    // Re-throw the error to be handled by the calling function if needed
+    throw error;
   }
 }
-
-    
