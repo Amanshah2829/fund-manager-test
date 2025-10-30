@@ -5,19 +5,17 @@
  * - TelegramBotInput - The input type for the processTelegramMessage function.
  * - TelegramBotOutput - The return type for the processTelegramMessage function.
  */
-
+import dbConnect from '@/backend/lib/mongodb';
 import { UserModel } from '@/backend/models/User';
 import { GroupModel } from '@/backend/models/Group';
 import { PaymentModel } from '@/backend/models/Payment';
 import { WithdrawalModel } from '@/backend/models/Withdrawal';
+import { sendTelegramMessage } from '@/lib/telegram';
+
 
 export interface TelegramBotInput {
   chatId: number;
   message: string;
-}
-
-export interface TelegramBotOutput {
-  reply: string;
 }
 
 async function handleLinkCommand(chatId: number, message: string): Promise<string> {
@@ -155,52 +153,57 @@ async function getContactReply(): Promise<string> {
 }
 
 
-export async function processTelegramMessage({ chatId, message }: TelegramBotInput): Promise<TelegramBotOutput> {
+export async function processTelegramMessage({ chatId, message }: TelegramBotInput): Promise<void> {
+  await dbConnect();
+  
   let reply = "";
-  const command = message.toLowerCase().split(' ')[0];
+  try {
+    const command = message.toLowerCase().split(' ')[0];
 
-  if (command.startsWith('/link')) {
-    reply = await handleLinkCommand(chatId, message);
-    return { reply };
-  }
+    if (command.startsWith('/link')) {
+      reply = await handleLinkCommand(chatId, message);
+    } else {
+      const user = await UserModel.findOne({ telegramId: chatId.toString() });
 
-  const user = await UserModel.findOne({ telegramId: chatId.toString() });
-
-  if (!user) {
-    reply = "Your Telegram account is not yet linked. Please ask your foreman for your unique 6-digit code and send it to me in the format: `/link 123456`";
-    return { reply };
+      if (!user) {
+        reply = "Your Telegram account is not yet linked. Please ask your foreman for your unique 6-digit code and send it to me in the format: `/link 123456`";
+      } else {
+        switch(command) {
+          case '/start':
+          case '/help':
+            reply = `Hello *${user.name}*!\n\nI'm your chit fund assistant. Here are the commands you can use:\n\n` +
+                    `*/status* - Get a full overview of your groups and payment status.\n` +
+                    `*/payment* - See the amount due for the current cycle.\n` +
+                    `*/statement* - View your recent transaction history.\n` +
+                    `*/contact* - Get contact information for the foreman.`;
+            break;
+          case '/status':
+            reply = await getStatusReply(user);
+            break;
+          case '/payment':
+            reply = await getPaymentReply(user);
+            break;
+          case '/statement':
+            reply = await getStatementReply(user);
+            break;
+          case '/contact':
+            reply = await getContactReply();
+            break;
+          default:
+            reply = `Sorry, that's not a valid command. Please use one of the following options:\n\n` +
+                    `*/status* - Get a full overview of your groups and payment status.\n` +
+                    `*/payment* - See the amount due for the current cycle.\n` +
+                    `*/statement* - View your recent transaction history.\n` +
+                    `*/contact* - Get contact information for the foreman.\n` +
+                    `*/help* - To see this list of commands again.`;
+            break;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error in processTelegramMessage:", error);
+    reply = "I'm sorry, something went wrong while processing your request. The admin has been notified.";
   }
   
-  switch(command) {
-    case '/start':
-    case '/help':
-      reply = `Hello *${user.name}*!\n\nI'm your chit fund assistant. Here are the commands you can use:\n\n` +
-              `*/status* - Get a full overview of your groups and payment status.\n` +
-              `*/payment* - See the amount due for the current cycle.\n` +
-              `*/statement* - View your recent transaction history.\n` +
-              `*/contact* - Get contact information for the foreman.`;
-      break;
-    case '/status':
-      reply = await getStatusReply(user);
-      break;
-    case '/payment':
-      reply = await getPaymentReply(user);
-      break;
-    case '/statement':
-      reply = await getStatementReply(user);
-      break;
-    case '/contact':
-      reply = await getContactReply();
-      break;
-    default:
-      reply = `Sorry, that's not a valid command. Please use one of the following options:\n\n` +
-              `*/status* - Get a full overview of your groups and payment status.\n` +
-              `*/payment* - See the amount due for the current cycle.\n` +
-              `*/statement* - View your recent transaction history.\n` +
-              `*/contact* - Get contact information for the foreman.\n` +
-              `*/help* - To see this list of commands again.`;
-      break;
-  }
-
-  return { reply };
+  await sendTelegramMessage(chatId.toString(), reply);
 }
