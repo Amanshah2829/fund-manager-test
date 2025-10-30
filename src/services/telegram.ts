@@ -152,8 +152,7 @@ async function getContactReply(): Promise<string> {
     return replyText;
 }
 
-
-export async function processTelegramMessage({ chatId, message }: TelegramBotInput): Promise<void> {
+export async function processTelegramMessage({ chatId, message }: TelegramBotInput): Promise<{ reply: string }> {
   await dbConnect();
   
   let reply = "";
@@ -204,6 +203,6 @@ export async function processTelegramMessage({ chatId, message }: TelegramBotInp
     console.error("Error in processTelegramMessage:", error);
     reply = "I'm sorry, something went wrong while processing your request. The admin has been notified.";
   }
-  
-  await sendTelegramMessage(chatId.toString(), reply);
+
+  return { reply };
 }
